@@ -3,7 +3,7 @@ class samba::server($interfaces = '',
                     $server_string = '',
                     $unix_password_sync = '',
                     $workgroup = '',
-                    $bind_interfaces_only = 'yes'
+                    $bind_interfaces_only = 'yes',
                     $options = {}) {
 
   include samba::server::install
