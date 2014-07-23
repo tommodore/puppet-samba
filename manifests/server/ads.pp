@@ -97,7 +97,6 @@ class samba::server::ads($ensure = present,
     'map readonly':                 value => $map_readonly;
     'password server':              value => $password_server;
     'winbind cache time':           value => $winbind_cache_time;
-    'winbind use default domain':   value => $winbind_use_default_domain;
     'template homedir':             value => $template_homedir;
     'template shell':               value => $template_shell;
     'client use spnego':            value => $client_use_spnego;
