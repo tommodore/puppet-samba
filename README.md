@@ -2,17 +2,9 @@
 
 Module for provisioning Samba
 
+Features AD join without winbind daemon
+
 Tested on Ubuntu 12.04, CentOS 6.3, patches to support other operating systems are welcome.
-
-## Installation
-
-Clone this repo to your Puppet modules directory
-
-    git clone git://github.com/ajjahn/puppet-samba.git samba
-
-or
-
-    puppet module install ajjahn/samba
 
 ## Usage
 
@@ -63,11 +55,13 @@ If you want join Samba server to Active Directory. Tested on Ubuntu 12.04.
       }
 
       class { 'samba::server::ads':
-         winbind_acct    => $::domain_admin,
-         winbind_pass    => $::admin_password,
+         ads_acct        => $::domain_admin,
+         ads_pass        => $::admin_password,
          realm           => 'EXAMPLE.COM',
-         nsswitch        => true,
-         target_ou       => "Nix_Mashine"
+         target_ou       => '',
+         password_server => 'IPADDRESS',
+         kdc             => 'dc01.domain.com',
+         default_domain  => 'ads.domain.de',
       }
     }
 
