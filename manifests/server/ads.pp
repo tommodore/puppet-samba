@@ -83,26 +83,6 @@ class samba::server::ads($ensure = present,
     'os level':                     value => $os_level;
   }
 
-  # $nss_file='etc/nsswitch.conf'
-
-  # $changes=$nsswitch ? {
-  #   true => [
-  #     "set database[. = 'passwd']/service[1] compat",
-  #     "set database[. = 'passwd']/service[2] winbind",
-  #     "set database[. = 'group']/service[1] compat",
-  #     "set database[. = 'group']/service[2] winbind",
-  #   ],
-  #   false => [
-  #     "rm /files/${nss_file}/database[. = 'passwd']/service[. = 'winbind']",
-  #     "rm /files/${nss_file}/database[. = 'group']/service[. = 'winbind']",
-  #   ]
-  # }
-
-  # augeas { 'nsswitch':
-  #   context => "/files/${nss_file}",
-  #   changes => $changes
-  # }
-
   file {'krb5.conf':
     path    => '/etc/krb5.conf',
     owner   => 0,
