@@ -1,0 +1,36 @@
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ default_realm = <%= scope.lookupvar('samba::server::ads::realm') -%>
+
+ dns_lookup_realm = false
+ dns_lookup_kdc = false
+ ticket_lifetime = 24h
+ forwardable = yes
+
+[realms]
+  <%= scope.lookupvar('samba::server::ads::realm') -%> = {
+  kdc = <%= scope.lookupvar('samba::server::ads::kdc') -%>
+
+  default_domain = <%= scope.lookupvar('samba::server::ads::default_domain') -%>
+
+ }
+
+[domain_realm]
+  .<%= scope.lookupvar('samba::server::ads::default_domain') -%> = <%= scope.lookupvar('samba::server::ads::realm') -%>
+
+  <%= scope.lookupvar('samba::server::ads::default_domain') -%> = <%= scope.lookupvar('samba::server::ads::realm') -%>
+
+
+[appdefaults]
+ pam = {
+   debug = false
+   ticket_lifetime = 36000
+   renew_lifetime = 36000
+   forwardable = true
+   krb4_convert = false
+ }
+
