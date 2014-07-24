@@ -12,23 +12,16 @@ if ! [ -x "$EXPECT" ]; then
   exit 1
 fi
 
-#TODO
-#if ! check_kdc_time; then
-#  {
-#  echo "===================================="
-#  echo "WARNING: time offset seems too large"
-#  echo "===================================="
-#  } >&2
-#fi
-
-password='<%= scope.lookupvar('samba::server::ads::winbind_pass') -%>'
+password='<%= scope.lookupvar('samba::server::ads::ads_pass') -%>'
 
 # short hostname from facter
 my_hostname="<%= @hostname -%>"
 
-winbind_acct="<%= scope.lookupvar('samba::server::ads::winbind_acct') -%>"
+ads_acct="<%= scope.lookupvar('samba::server::ads::ads_acct') -%>"
 
-default_realm=$(grep -i '^[[:space:]]*realm.*=' /etc/samba/smb.conf | sed 's/ //g' | sed 's/realm=//g')
+kdc="<%= scope.lookupvar('samba::server::ads::kdc') -%>"
+
+default_realm="<%= scope.lookupvar('samba::server::ads::realm') -%>"
 
 # if we're still here, let's try the testjoin
 do_testjoin() {
@@ -49,6 +42,7 @@ do_testjoin
 if [ $? -ne 0 ]; then
   # get verbose failure info
   do_testjoin -d3
+  exit 1
 fi
 
 
@@ -56,18 +50,18 @@ fi
 # - get a TGT that enables us to query the attribute 'useraccountcontrol'
 # - confirm that AD trusts us for GSSAPI delegation
 
-export KRB5CCNAME=$(umask 0077; mktemp -q winbind_cache.XXXXXXXX)
+export KRB5CCNAME=$(umask 0077; mktemp -q krb_cache.XXXXXXXX)
 
 get_tgt() {
   (
-  $EXPECT -c "spawn -noecho kinit -c $KRB5CCNAME ${winbind_acct}@${default_realm};
-	expect :;
-	send {${password}};
-	send \n;
-	expect eof"
+  $EXPECT -c "spawn -noecho kinit -c $KRB5CCNAME ${ads_acct}@${default_realm};
+  expect :;
+  send {${password}};
+  send \n;
+  expect eof"
   ) &> /dev/null
-  klist -c $KRB5CCNAME &> /dev/null
-  return $?
+klist -c $KRB5CCNAME &> /dev/null
+return $?
 }
 
 # try this several times.
@@ -92,12 +86,12 @@ if [ $has_tgt -ne 0 ]; then
   logger -st $PROG "ERROR: failed to get TGT from AD"
   success=false
 else
-  if [ $(wbinfo -u|wc -l) != 0 ]; then
-    success=true
-  else
-    echo "ERROR: return user list from AD is empty" >&2
-    success=false
-  fi
+#   if [ $(wbinfo -u|wc -l) != 0 ]; then
+#     success=true
+#   else
+#     echo "ERROR: return user list from AD is empty" >&2
+#     success=false
+#   fi
 
   # get rid of cred cache
   kdestroy -c $KRB5CCNAME &> /dev/null

@@ -4,17 +4,10 @@
 # Licensed under the MIT License, http://opensource.org/licenses/MIT
 
 class samba::server::ads($ensure = present,
-  $winbind_acct               = 'admin',
-  $winbind_pass               = 'SecretPass',
+  $ads_acct                   = 'admin',
+  $ads_pass                   = 'SecretPass',
   $realm                      = 'domain.com',
-  $winbind_uid                  = '10000-20000',
-  $winbind_gid                  = '10000-20000',
-  $idmap_uid                  = '10000-20000',
-  $idmap_gid                  = '10000-20000',
-  $winbind_enum_groups        = 'yes',
-  $winbind_enum_users         = 'yes',
-  $winbind_use_default_domain = 'yes',
-  $nsswitch                   = false,
+  # $nsswitch                   = false,
   $acl_group_control          = 'yes',
   $map_acl_inherit            = 'yes',
   $inherit_acls               = 'yes',
@@ -26,8 +19,6 @@ class samba::server::ads($ensure = present,
   $map_archive                = 'no',
   $map_readonly               = 'no',
   $password_server            = '127.0.0.1',
-  $winbind_cache_time         = '10',
-  $winbind_use_default_domain = yes,
   $template_homedir           = '/home/%U',
   $template_shell             = '/bin/bash',
   $client_use_spnego          = yes,
@@ -38,6 +29,8 @@ class samba::server::ads($ensure = present,
   $local_master               = no,
   $preferred_master           = no,
   $os_level                   = '0',
+  $default_domain             = "${::domain}",
+  $kdc                        = 'kdc',
   $target_ou                  = 'Nix_Mashine') {
 
   $krb5_user_package = $osfamily ? {
@@ -62,29 +55,10 @@ class samba::server::ads($ensure = present,
   }
 
   include samba::server::config
-  include samba::server::winbind
 
-  # notify winbind
-  samba::server::option {
-    'realm':                        value => $realm,
-    notify                                => Class['Samba::Server::Winbind'];
-    'winbind uid':                  value => $winbind_uid,
-    notify                                => Class['Samba::Server::Winbind'];
-    'winbind gid':                  value => $winbind_gid,
-    notify                                => Class['Samba::Server::Winbind'];
-    'idmap uid':                  value => $idmap_uid,
-    notify                                => Class['Samba::Server::Winbind'];
-    'idmap gid':                  value => $idmap_gid,
-    notify                                => Class['Samba::Server::Winbind'];
-    'winbind enum groups':          value => $winbind_enum_groups,
-    notify                                => Class['Samba::Server::Winbind'];
-    'winbind enum users':           value => $winbind_enum_users,
-    notify                                => Class['Samba::Server::Winbind'];
-    'winbind use default domain':   value => $winbind_use_default_domain,
-    notify                                => Class['Samba::Server::Winbind'];
-  }
 
   samba::server::option {
+    'realm':                        value => $realm;
     'acl group control':            value => $acl_group_control;
     'map acl inherit':              value => $map_acl_inherit;
     'inherit acls':                 value => $inherit_acls;
@@ -109,24 +83,33 @@ class samba::server::ads($ensure = present,
     'os level':                     value => $os_level;
   }
 
-  $nss_file='etc/nsswitch.conf'
+  # $nss_file='etc/nsswitch.conf'
 
-  $changes=$nsswitch ? {
-    true => [
-      "set database[. = 'passwd']/service[1] compat",
-      "set database[. = 'passwd']/service[2] winbind",
-      "set database[. = 'group']/service[1] compat",
-      "set database[. = 'group']/service[2] winbind",
-    ],
-    false => [
-      "rm /files/${nss_file}/database[. = 'passwd']/service[. = 'winbind']",
-      "rm /files/${nss_file}/database[. = 'group']/service[. = 'winbind']",
-    ]
-  }
+  # $changes=$nsswitch ? {
+  #   true => [
+  #     "set database[. = 'passwd']/service[1] compat",
+  #     "set database[. = 'passwd']/service[2] winbind",
+  #     "set database[. = 'group']/service[1] compat",
+  #     "set database[. = 'group']/service[2] winbind",
+  #   ],
+  #   false => [
+  #     "rm /files/${nss_file}/database[. = 'passwd']/service[. = 'winbind']",
+  #     "rm /files/${nss_file}/database[. = 'group']/service[. = 'winbind']",
+  #   ]
+  # }
 
-  augeas { 'nsswitch':
-    context => "/files/${nss_file}",
-    changes => $changes
+  # augeas { 'nsswitch':
+  #   context => "/files/${nss_file}",
+  #   changes => $changes
+  # }
+
+  file {'krb5.conf':
+    path    => '/etc/krb5.conf',
+    owner   => 0,
+    group   => 0,
+    mode    => '0744',
+    content => template("${module_name}/krb5.conf.erb"),
+    require => Package[$krb5_user_package],
   }
 
   file {'verify_active_directory':
@@ -136,10 +119,8 @@ class samba::server::ads($ensure = present,
     group   => root,
     mode    => "0755",
     content => template("${module_name}/verify_active_directory.erb"),
-    require => [ Package[$krb5_user_package, $winbind_package, 'expect'],
-    Augeas['samba-realm', 'samba-security', 'samba-winbind enum users',
-    'samba-winbind enum groups', 'samba-winbind uid', 'samba-winbind gid',
-    'samba-winbind use default domain'], Service['winbind'] ],
+    require => [ Package[$krb5_user_package, 'expect'],
+      Augeas['samba-realm', 'samba-security']]
   }
 
   file {'configure_active_directory':
@@ -149,16 +130,14 @@ class samba::server::ads($ensure = present,
     group   => root,
     mode    => "0755",
     content => template("${module_name}/configure_active_directory.erb"),
-    require => [ Package[$krb5_user_package, $winbind_package, 'expect'],
-    Augeas['samba-realm', 'samba-security', 'samba-winbind enum users',
-    'samba-winbind enum groups', 'samba-winbind uid', 'samba-winbind gid',
-    'samba-winbind use default domain'], Service['winbind'] ],
+    require => [ Package[$krb5_user_package, 'expect'],
+      Augeas['samba-realm', 'samba-security']]
   }
 
   exec {'join-active-directory':
     # join the domain configured in samba.conf
     command => '/sbin/configure_active_directory -j',
     unless  => '/sbin/verify_active_directory',
-    require => [ File['configure_active_directory', 'verify_active_directory'], Service['winbind'] ],
+    require => File['configure_active_directory', 'verify_active_directory'],
   }
 }

@@ -9,7 +9,7 @@
 seconds=300
 #
 # post_join_delay seems to be necessary after joing domain
-post_join_delay=30
+post_join_delay=5
 #
 
 PROG=$(basename $0)
@@ -54,13 +54,13 @@ do
   esac
 done
 
-password='<%= scope.lookupvar('samba::server::ads::winbind_pass') -%>'
+password='<%= scope.lookupvar('samba::server::ads::ads_pass') -%>'
 
 # short hostname from facter
 my_hostname="<%= @hostname -%>"
 
 # what account do we use for net ads commands?
-winbind_acct="<%= scope.lookupvar('samba::server::ads::winbind_acct') -%>"
+ads_acct="<%= scope.lookupvar('samba::server::ads::ads_acct') -%>"
 
 # which realm will we be joining?
 my_realm="<%= scope.lookupvar('samba::server::ads::realm') -%>"
@@ -80,7 +80,7 @@ echo "Please do not kill me; I may be slow" >&2
 
 if [ "$action" = "leave" ]; then
   logger -st $PROG "Leaving AD domain"
-  $NET ads $action -U "${winbind_acct}%${password}" | grep Deleted && success=true || success=false
+  $NET ads $action -U "${ads_acct}%${password}" | grep Deleted && success=true || success=false
   kdestroy
   rm -f /etc/krb5.keytab
   if [ $success = "true" ]; then
@@ -102,7 +102,7 @@ ad_settle() {
 }
 
 # ldapmodify _does_ use the env var for sasl bind
-export KRB5CCNAME=$(umask 0077; mktemp -q winbind_cache.XXXXXXXX)
+export KRB5CCNAME=$(umask 0077; mktemp -q krb_cache.XXXXXXXX)
 
 if [ "$action" = "join" ]; then
     if [ "${target_ou}" != "" ]; then
@@ -112,7 +112,7 @@ if [ "$action" = "join" ]; then
     fi
 
     logger -st $PROG "Joining AD domain" >&2
-    $NET ads $action -U "${winbind_acct}%${password}" ${ou_parameter} \
+    $NET ads $action -U "${ads_acct}%${password}" ${ou_parameter} \
 	| grep Joined && success=true || success=false
 
 if [ $success = "false" ]; then
@@ -124,8 +124,8 @@ max_attempts=5
 for attempt in $(seq 1 $max_attempts); do
     echo "$attempt of $max_attempts:"
     ad_settle
-    echo "Getting TGT for ${winbind_acct}@${my_realm}" >&2
-    $EXPECT -c "spawn -noecho kinit -c $KRB5CCNAME ${winbind_acct}@${my_realm};
+    echo "Getting TGT for ${ads_acct}@${my_realm}" >&2
+    $EXPECT -c "spawn -noecho kinit -c $KRB5CCNAME ${ads_acct}@${my_realm};
         expect :;
         send {${password}};
         send \n;
@@ -133,12 +133,12 @@ for attempt in $(seq 1 $max_attempts); do
     klist -c $KRB5CCNAME &> /dev/null && break
 done
 
-if [ $(wbinfo -u|wc -l) != 0 ]; then
-	success=true
-else
-	echo "ERROR: return user list from AD is empty" >&2
-	success=false
-fi
+# if [ $(wbinfo -u|wc -l) != 0 ]; then
+# 	success=true
+# else
+# 	echo "ERROR: return user list from AD is empty" >&2
+# 	success=false
+# fi
 
 # get rid of cred cache
 kdestroy -c $KRB5CCNAME &> /dev/null
