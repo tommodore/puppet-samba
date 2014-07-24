@@ -7,8 +7,10 @@ class samba::server::ads($ensure = present,
   $winbind_acct               = 'admin',
   $winbind_pass               = 'SecretPass',
   $realm                      = 'domain.com',
-  $winbind_uid                = '10000-20000',
-  $winbind_gid                = '10000-20000',
+  $winbind_uid                  = '10000-20000',
+  $winbind_gid                  = '10000-20000',
+  $idmap_uid                  = '10000-20000',
+  $idmap_gid                  = '10000-20000',
   $winbind_enum_groups        = 'yes',
   $winbind_enum_users         = 'yes',
   $winbind_use_default_domain = 'yes',
@@ -23,6 +25,19 @@ class samba::server::ads($ensure = present,
   $map_system                 = 'no',
   $map_archive                = 'no',
   $map_readonly               = 'no',
+  $password_server            = '127.0.0.1',
+  $winbind_cache_time         = '10',
+  $winbind_use_default_domain = yes,
+  $template_homedir           = '/home/%U',
+  $template_shell             = '/bin/bash',
+  $client_use_spnego          = yes,
+  $client_ntlmv2_auth         = yes,
+  $encrypt_passwords          = yes,
+  $restrict_anonymous         = '2',
+  $domain_master              = no,
+  $local_master               = no,
+  $preferred_master           = no,
+  $os_level                   = '0',
   $target_ou                  = 'Nix_Mashine') {
 
   $krb5_user_package = $osfamily ? {
@@ -57,6 +72,10 @@ class samba::server::ads($ensure = present,
     notify                                => Class['Samba::Server::Winbind'];
     'winbind gid':                  value => $winbind_gid,
     notify                                => Class['Samba::Server::Winbind'];
+    'idmap uid':                  value => $idmap_uid,
+    notify                                => Class['Samba::Server::Winbind'];
+    'idmap gid':                  value => $idmap_gid,
+    notify                                => Class['Samba::Server::Winbind'];
     'winbind enum groups':          value => $winbind_enum_groups,
     notify                                => Class['Samba::Server::Winbind'];
     'winbind enum users':           value => $winbind_enum_users,
@@ -76,22 +95,34 @@ class samba::server::ads($ensure = present,
     'map system':                   value => $map_system;
     'map archive':                  value => $map_archive;
     'map readonly':                 value => $map_readonly;
+    'password server':              value => $password_server;
+    'winbind cache time':           value => $winbind_cache_time;
+    'template homedir':             value => $template_homedir;
+    'template shell':               value => $template_shell;
+    'client use spnego':            value => $client_use_spnego;
+    'client ntlmv2 auth':           value => $client_ntlmv2_auth;
+    'encrypt passwords':            value => $encrypt_passwords;
+    'restrict anonymous':           value => $restrict_anonymous;
+    'domain master':                value => $domain_master;
+    'local master':                 value => $local_master;
+    'preferred master':             value => $preferred_master;
+    'os level':                     value => $os_level;
   }
 
   $nss_file='etc/nsswitch.conf'
 
   $changes=$nsswitch ? {
-      true => [
-        "set database[. = 'passwd']/service[1] compat",
-        "set database[. = 'passwd']/service[2] winbind",
-        "set database[. = 'group']/service[1] compat",
-        "set database[. = 'group']/service[2] winbind",
-      ],
-      false => [
-        "rm /files/${nss_file}/database[. = 'passwd']/service[. = 'winbind']",
-        "rm /files/${nss_file}/database[. = 'group']/service[. = 'winbind']",
-      ]
-    }
+    true => [
+      "set database[. = 'passwd']/service[1] compat",
+      "set database[. = 'passwd']/service[2] winbind",
+      "set database[. = 'group']/service[1] compat",
+      "set database[. = 'group']/service[2] winbind",
+    ],
+    false => [
+      "rm /files/${nss_file}/database[. = 'passwd']/service[. = 'winbind']",
+      "rm /files/${nss_file}/database[. = 'group']/service[. = 'winbind']",
+    ]
+  }
 
   augeas { 'nsswitch':
     context => "/files/${nss_file}",
@@ -106,9 +137,9 @@ class samba::server::ads($ensure = present,
     mode    => "0755",
     content => template("${module_name}/verify_active_directory.erb"),
     require => [ Package[$krb5_user_package, $winbind_package, 'expect'],
-      Augeas['samba-realm', 'samba-security', 'samba-winbind enum users',
-        'samba-winbind enum groups', 'samba-winbind uid', 'samba-winbind gid',
-        'samba-winbind use default domain'], Service['winbind'] ],
+    Augeas['samba-realm', 'samba-security', 'samba-winbind enum users',
+    'samba-winbind enum groups', 'samba-winbind uid', 'samba-winbind gid',
+    'samba-winbind use default domain'], Service['winbind'] ],
   }
 
   file {'configure_active_directory':
@@ -119,9 +150,9 @@ class samba::server::ads($ensure = present,
     mode    => "0755",
     content => template("${module_name}/configure_active_directory.erb"),
     require => [ Package[$krb5_user_package, $winbind_package, 'expect'],
-      Augeas['samba-realm', 'samba-security', 'samba-winbind enum users',
-        'samba-winbind enum groups', 'samba-winbind uid', 'samba-winbind gid',
-        'samba-winbind use default domain'], Service['winbind'] ],
+    Augeas['samba-realm', 'samba-security', 'samba-winbind enum users',
+    'samba-winbind enum groups', 'samba-winbind uid', 'samba-winbind gid',
+    'samba-winbind use default domain'], Service['winbind'] ],
   }
 
   exec {'join-active-directory':

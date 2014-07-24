@@ -14,9 +14,9 @@ class samba::server($interfaces = '',
   $context = "/files/etc/samba/smb.conf"
   $target  = "target[. = 'global']"
 
-  $keys = split(inline_template("<%= options.keys.join(',') %>"), ",")
+  $keys = split(inline_template("<%= @options.keys.join(',') %>"), ",")
   augeas_option {
-    $keys: 
+    $keys:
       options => $options
   }
 

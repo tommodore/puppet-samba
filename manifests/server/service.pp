@@ -26,7 +26,7 @@ class samba::server::service ($ensure = running, $enable = true) {
       default: { fail("$::osfamily is not supported by this module.") }
     }
 
-  service { "$service_name" :
+  service { $service_name :
     ensure      => $ensure,
     hasstatus   => true,
     hasrestart  => true,
